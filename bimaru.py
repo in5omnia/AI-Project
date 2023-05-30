@@ -5,7 +5,7 @@
 # Grupo 00:
 # 00000 Nome1
 # 00000 Nome2
-
+import numpy as np
 import sys
 from search import (
     Problem,
@@ -64,6 +64,17 @@ class Board:
             > line = stdin.readline().split()
         """
         # TODO
+        rowCount = np.array([int(i) for i in input().split("\t")[1:11]])
+        columnCount = np.array([int(i) for i in input().split("\t")[1:11]])
+        no_hint = int(input())
+        hintList = []
+        for i in range(no_hint):
+            hint = input().split("\t")
+            hint = [eval(i) for i in hint[1:4]]
+            hintList.append(hint)
+            # TODO add hint to Board
+
+        # return Board(rowCount, columnCount, hints)
         pass
 
     # TODO: outros metodos da classe
