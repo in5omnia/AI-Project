@@ -7,6 +7,7 @@
 # 00000 Nome2
 
 import sys
+from copy import deepcopy
 
 import numpy as np
 
@@ -37,20 +38,31 @@ class BimaruState:
 
 class Board:
     def __init__(self, rows_left: list, columns_left: list, boats_left: list,
-                 matrix: np.ndarray((10, 10)), init=False, sorted_hints=[]):
+                 matrix: np.ndarray((10, 10)), init=False, sorted_hints=[], candidate_actions=None):
         """O construtor deve receber os valores das pistas (rows_left e
         columns_left) e o tabuleiro (board) e inicializar as variáveis
         de instância."""
+        self.candidate_actions = candidate_actions
         self.rows_left = rows_left
-        self.rows_to_fill = [10] * 10
         self.columns_left = columns_left
-        self.columns_to_fill = [10] * 10
         self.boats_left = boats_left   # [1p,2p,3p,4p]
         self.matrix = matrix
+        self.candidates_from_hints = {}
         if init:
+           # self.rows_to_fill = [10] * 10
+            #self.columns_to_fill = [10] * 10
             self.initialize(sorted_hints)
         else:
             pass    # TODO
+
+    def copy(self):
+        rows = self.rows_left.copy()
+        cols = self.columns_left.copy()
+        boats = self.boats_left.copy()
+        matrix = self.matrix.copy()
+        candidate_actions = deepcopy(self.candidate_actions)
+
+        return Board(rows, cols, boats, matrix, candidate_actions=candidate_actions)
 
     """Representação interna de um tabuleiro de Bimaru."""
 
@@ -70,7 +82,6 @@ class Board:
         respectivamente."""
         # TODO
         pass
-
 
     @staticmethod
     def translate_to_int(hint: str) -> int:
@@ -177,23 +188,49 @@ class Bimaru(Problem):
     def actions(self, state: BimaruState):
         """Retorna uma lista de ações que podem ser executadas a
         partir do estado passado como argumento."""
-        # TODO
-        pass
+
+        return state.board.actions()
+
 
     def result(self, state: BimaruState, action):
         """Retorna o estado resultante de executar a 'action' sobre
         'state' passado como argumento. A ação a executar deve ser uma
         das presentes na lista obtida pela execução de
         self.actions(state)."""
-        # TODO
-        pass
+
+        new_board = state.board.copy()
+
+        new_board.place_boat(action)
+        new_board.update_candidates()
+
+        return BimaruState(new_board)
 
     def goal_test(self, state: BimaruState):
         """Retorna True se e só se o estado passado como argumento é
         um estado objetivo. Deve verificar se todas as posições do tabuleiro
         estão preenchidas de acordo com as regras do problema."""
-        # TODO
-        pass
+
+        for i in state.board.boats_left:
+            if i:
+                return False
+
+        for i in range(4):
+            if state.board.boats_left[i] != 0:
+                return False
+            if state.board.rows_left[i] != 0:
+                return False
+            if state.board.columns_left[i] != 0:
+                return False
+
+        for i in range(4, 10):
+            if state.board.rows_left[i] != 0:
+                return False
+            if state.board.columns_left[i] != 0:
+                return False
+
+        return True
+
+
 
     def h(self, node: Node):
         """Função heuristica utilizada para a procura A*."""
@@ -204,14 +241,14 @@ class Bimaru(Problem):
 
 
 if __name__ == "__main__":
-    # TODO:
     # Ler o ficheiro do standard input,
     board = Board.parse_instance()
-    #problem = Bimaru(board)
-    goal_node = depth_first_tree_search(Bimaru(board))
-    print(board.matrix)
-
+    problem = Bimaru(board)
     # Usar uma técnica de procura para resolver a instância,
     # Retirar a solução a partir do nó resultante,
+    goal_node = depth_first_tree_search(Bimaru(board))
+
     # Imprimir para o standard output no formato indicado.
-    pass
+
+
+
