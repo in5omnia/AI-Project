@@ -2,9 +2,9 @@
 # Devem alterar as classes e funções neste ficheiro de acordo com as instruções do enunciado.
 # Além das funções e classes já definidas, podem acrescentar outras que considerem pertinentes.
 
-# Grupo 00:
-# 00000 Nome1
-# 00000 Nome2
+# Grupo 48:
+# 102463 Beatriz Gavilan
+# 102415 Eduardo Nazário
 
 import sys
 from copy import deepcopy
@@ -38,6 +38,7 @@ class BimaruState:
     # TODO: outros metodos da classe
 
 
+    """Representação interna de um tabuleiro de Bimaru."""
 class Board:
     def __init__(self, rows_left: list, columns_left: list, boats_left: list,
                  matrix: np.ndarray((10, 10)), init=False, sorted_hints=[], candidate_actions=None, prev_max_boat=4, prev_actions=[]):
@@ -74,7 +75,23 @@ class Board:
 
         return Board(rows, cols, boats, matrix, candidate_actions=candidate_actions, prev_max_boat=prev_max_boat, prev_actions=prev_actions)
 
-    """Representação interna de um tabuleiro de Bimaru."""
+    def print_board_output(self, hints: list):
+        """Imprime o tabuleiro de acordo com o formato descrito no enunciado."""
+        output = {0: ".", 1: ".", 2: "c", 3: "t", 4: "b", 6: "l", 7: "r", 8: "m"}
+        output_m = []
+        for row in range(10):
+            string_row = ""
+            for col in range(10):
+
+                string_row += output[self.matrix[row, col]]
+            output_m.append(string_row)
+
+        for hint in hints:
+            output_m[hint[0]] = output_m[hint[0]][:hint[1]] + hint[2] + output_m[hint[0]][hint[1] + 1:]
+
+        for r in output_m:
+            print(r)
+
 
     def initialize(self, sorted_hints: list):
         for i in range(10):
@@ -110,7 +127,7 @@ class Board:
                         #remove from candidates
 
                     elif piece == 3:  # hint is Top
-                        if hint_row == 8 and self.matrix[hint_row + 2, hint_col] == 1:  # if water 2 under or last row
+                        if hint_row == 8 or self.matrix[hint_row + 2, hint_col] == 1:  # if water 2 under or last row
                             self.place_piece(hint_row + 1, hint_col, 4)  # place Bottom
                             self.remove_boat(2)  # mark boat of 2 pieces as found
                         elif self.matrix[hint_row + 1, hint_col] == 9:  # if undefined below
@@ -125,7 +142,7 @@ class Board:
                             self.infer_water(9, hint_row + 1, hint_col)
 
                     elif piece == 4:  # if Bottom
-                        if hint_row == 1 and self.matrix[hint_row - 2, hint_col] == 1:  # if water 2 above or first row
+                        if hint_row == 1 or self.matrix[hint_row - 2, hint_col] == 1:  # if water 2 above or first row
                             self.place_piece(hint_row - 1, hint_col, 3)  # place Top
                             self.remove_boat(2)  # mark boat of 2 pieces as found
                         elif self.matrix[hint_row - 1, hint_col] == 9:  # if undefined below
@@ -140,7 +157,7 @@ class Board:
                             self.infer_water(9, hint_row - 1, hint_col)
 
                     elif piece == 6:  # Left
-                        if hint_col == 8 and self.matrix[hint_row, hint_col + 2] == 1:  # if water 2 left or last column
+                        if hint_col == 8 or self.matrix[hint_row, hint_col + 2] == 1:  # if water 2 left or last column
                             self.place_piece(hint_row, hint_col + 1, 7)     # place Right
                             self.remove_boat(2)  # mark boat of 2 pieces as found
                         elif self.matrix[hint_row, hint_col + 1] == 9:      # if undefined on the right
@@ -155,7 +172,7 @@ class Board:
                             self.infer_water(9, hint_row, hint_col + 1)
 
                     elif piece == 7:  # Right
-                        if hint_col == 1 and self.matrix[hint_row, hint_col - 2] == 1:  # if water 2 right or first column
+                        if hint_col == 1 or self.matrix[hint_row, hint_col - 2] == 1:  # if water 2 right or first column
                             self.place_piece(hint_row, hint_col - 1, 6)     # place Left
                             self.remove_boat(2)  # mark boat of 2 pieces as found
                         elif self.matrix[hint_row, hint_col - 1] == 9:      # if undefined on the left
@@ -174,6 +191,16 @@ class Board:
                 else:   # if Middle
                     if prev_piece == 8:  # if Middle
                         continue            # FIXME NOT NEEEDED
+
+                    if hint_col <= 7 and self.matrix[hint_row, hint_col + 2] > 1:   # piece on the right
+                        self.place_water(hint_row, hint_col + 1, "rlud", True)
+                    elif hint_col >= 2 and self.matrix[hint_row, hint_col - 2] > 1:
+                        self.place_water(hint_row, hint_col - 1, "rlud", True)
+                    elif hint_row <= 7 and self.matrix[hint_row + 2, hint_col] > 1:   # piece on the right
+                        self.place_water(hint_row + 1, hint_col, "rlud", True)
+                    elif hint_row >= 2 and self.matrix[hint_row - 2, hint_col] > 1:
+                        self.place_water(hint_row - 1, hint_col, "rlud", True)
+
                     # if first row or water above -> horizontal boat
                     if hint_row == 0 or self.matrix[hint_row - 1, hint_col] == 1 or hint_row == 9 or \
                                                                 self.matrix[hint_row + 1, hint_col] == 1:
@@ -448,7 +475,7 @@ class Board:
 
                         grouped_actions.append((row, column - 2, 3, True))  # Add 3  - Horizontal
                         action_count += 1
-                        if self.boats_left[4 - 1] > 0 and self.columns_left[row] >= 4:  # if there's a 4p left
+                        if self.boats_left[4 - 1] > 0 and self.rows_left[row] > 0:  # if there's a 4p left
                             grouped_actions.append((row, column - 2, 4, True))  # Add 4  - Horizontal
                             action_count += 1
                             if self.matrix[row, column - 2] != 6:  # if not Left
@@ -458,7 +485,7 @@ class Board:
                     if row < originator[0]:  # Undef Top of originator
                         grouped_actions.append((row, column, 3, False))  # Add 3  - Vertical
                         action_count += 1
-                        if self.boats_left[4 - 1] > 0 and self.columns_left[column] >= 4:  # if there's a 4p left
+                        if self.boats_left[4 - 1] > 0 and self.columns_left[column] > 0:  # if there's a 4p left
                             grouped_actions.append((row - 1, column, 4, False))  # Add 4  - Vertical
                             action_count += 1
                             if self.matrix[row + 2, column] != 4:  # if not Bottom
@@ -469,7 +496,7 @@ class Board:
                             continue
                         grouped_actions.append((row - 2, column, 3, False))  # Add 3  - Vertical
                         action_count += 1
-                        if self.boats_left[4 - 1] > 0 and self.columns_left[column] >= 4:  # if there's a 4p left
+                        if self.boats_left[4 - 1] > 0 and self.columns_left[column] > 0:  # if there's a 4p left
                             grouped_actions.append((row - 2, column, 4, False))  # Add 4  - Vertical
                             action_count += 1
                             if self.matrix[row - 2, column] != 3:  # if not Top
@@ -502,7 +529,8 @@ class Board:
 
     def fill_col_with_water(self, col_no: int):
         """ Fills column with water """
-        direction = "ud"
+        #direction = "ud"
+        direction = ""
         if col_no != 0:
             direction += "l"
         if col_no != 9:
@@ -510,7 +538,12 @@ class Board:
 
         for row_no in range(10):
             if self.matrix[row_no, col_no] == 0:  # if not filled
-                self.place_water(row_no, col_no, direction, True)
+                direct = direction
+                if row_no < 9 and self.matrix[row_no + 1, col_no] > 1:
+                    direct += "d"
+                if row_no > 1 and self.matrix[row_no - 1, col_no] > 1:
+                    direct += "u"
+                self.place_water(row_no, col_no, direct, True)
         return
 
     def place_piece(self, row: int, col: int, piece: int, originator=()):
@@ -556,6 +589,7 @@ class Board:
                     two_right = self.matrix[row, col + 2]
                     if two_right > 1:  # boat on the right of undefined (M or R)
                         self.replace_piece(row, col + 1, 6)  # replace with Left
+                        self.infer_water(6, row, col + 1)   #REPLACE INFER
                         if not has_middles:
                             self.remove_boat(2)  # mark boat of 2 pieces as found
                         else:
@@ -589,13 +623,13 @@ class Board:
                         self.infer_water(9, row + 1, col + 1)
 
 
-
         if "l" in direction:
             if col > 1:
                 if self.matrix[row, col - 1] == 9:  # if undefined
                     two_left = self.matrix[row, col - 2]
                     if two_left > 1:  # boat on the left of undefined ([M] or L)
                         self.replace_piece(row, col - 1, 7)  # replace Right
+                        self.infer_water(7, row, col - 1)   # REPLACE INFER
                         if two_left == 6:   # if has Left
                             self.remove_boat(2)  # mark boat of 2p as found
                         else:
@@ -633,6 +667,7 @@ class Board:
                 two_up = self.matrix[row - 2, col]
                 if two_up > 1:  # boat on the top of undefined ([M] or T)
                     self.replace_piece(row - 1, col, 4)  # replace Bottom # TODO: boat
+                    self.infer_water(4, row - 1, col)   #REPLACE INFER
                     if not has_middles:
                         self.remove_boat(2)  # mark boat of 2p as found
                     else:
@@ -671,6 +706,7 @@ class Board:
                 two_down = self.matrix[row + 2, col]
                 if two_down > 1:  # boat on the bottom of undefined ([M] or B)
                     self.replace_piece(row + 1, col, 3)  # replace above with Top
+                    self.infer_water(3, row + 1, col)   #REPLACE INFER
                     if not has_middles:
                         self.remove_boat(2)  # mark boat of 2p as found
                     else:
