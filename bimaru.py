@@ -22,6 +22,8 @@ from search import (
 )
 
 
+fill_with_water = True
+
 class BimaruState:
     state_id = 0
 
@@ -38,16 +40,19 @@ class BimaruState:
 
 class Board:
     def __init__(self, rows_left: list, columns_left: list, boats_left: list,
-                 matrix: np.ndarray((10, 10)), init=False, sorted_hints=[], candidate_actions=None):
+                 matrix: np.ndarray((10, 10)), init=False, sorted_hints=[], candidate_actions=None, prev_max_boat=4, prev_actions=[]):
         """O construtor deve receber os valores das pistas (rows_left e
         columns_left) e o tabuleiro (board) e inicializar as variáveis
         de instância."""
+        self.prev_actions = prev_actions
+        self.prev_max_boat = prev_max_boat
         self.candidate_actions = candidate_actions
         self.rows_left = rows_left
         self.columns_left = columns_left
         self.boats_left = boats_left   # [1p,2p,3p,4p]
         self.matrix = matrix
         self.candidates_from_hints = {}
+        self.null = False
         if init:
            # self.rows_to_fill = [10] * 10
             #self.columns_to_fill = [10] * 10
@@ -55,14 +60,19 @@ class Board:
         else:
             pass    # TODO
 
+    def nullify(self):
+        self.null = True
+
     def copy(self):
         rows = self.rows_left.copy()
         cols = self.columns_left.copy()
         boats = self.boats_left.copy()
         matrix = self.matrix.copy()
+        prev_max_boat = self.prev_max_boat
+        prev_actions = self.prev_actions
         candidate_actions = deepcopy(self.candidate_actions)
 
-        return Board(rows, cols, boats, matrix, candidate_actions=candidate_actions)
+        return Board(rows, cols, boats, matrix, candidate_actions=candidate_actions, prev_max_boat=prev_max_boat, prev_actions=prev_actions)
 
     """Representação interna de um tabuleiro de Bimaru."""
 
@@ -88,20 +98,15 @@ class Board:
                 if piece == prev_piece:  # already infered
                     continue
 
-                if prev_piece == 0:  # if empty
-                    self.place_piece(hint_row, hint_col, piece)  # Place hint
-                else:  # it's undefined
-                    self.replace_piece(hint_row, hint_col, piece)  # Replace hint
-
-
 
                 if piece != 8:  # if not middle
-                    if piece == 2:
+                    if piece == 2:  # if circle
                         self.remove_boat(1)  # mark boat of 1 piece as found
 
                     elif prev_piece == 9:  # if undefined
                         self.remove_boat(2)  # it's a 2p boat
-                        del self.candidates_from_hints[(hint_row, hint_col)]
+                        if (hint_row, hint_col) in self.candidates_from_hints:
+                            del self.candidates_from_hints[(hint_row, hint_col)]
                         #remove from candidates
 
                     elif piece == 3:  # hint is Top
@@ -131,7 +136,7 @@ class Board:
                             self.place_piece(hint_row - 1, hint_col, 8)  # Fixme: check if it's correct
                             self.replace_piece(hint_row - 2, hint_col, 8)  # replace with Middles
                         else:
-                            self.place_piece(hint_row - 1, hint_col, 9, originator=(hint_row,hint_col,4))  # place Undefined
+                            self.place_piece(hint_row - 1, hint_col, 9, originator=(hint_row, hint_col, 4))  # place Undefined
                             self.infer_water(9, hint_row - 1, hint_col)
 
                     elif piece == 6:  # Left
@@ -329,8 +334,14 @@ class Board:
                                     self.place_piece(hint_row + 1, hint_col, 9, originator=(hint_row, hint_col, 8))  # place Undefined
                                     self.infer_water(9, hint_row + 1, hint_col)
 
-                    # Água da peça acabada de por
-                    self.infer_water(piece, hint_row, hint_col)
+                    #FIXME infer water was here
+                if prev_piece == 0:  # if empty
+                    self.place_piece(hint_row, hint_col, piece)  # Place hint
+                else:  # it's undefined
+                    self.replace_piece(hint_row, hint_col, piece)  # Replace hint
+
+                # Água da peça acabada de por
+                self.infer_water(piece, hint_row, hint_col)
 
                 """
                 # TODO: remove circles from boats_left
@@ -363,7 +374,7 @@ class Board:
                     if row <= 9 and self.matrix[row, column] == 0:  # if empty
                         max_boat_len += 1
                         row += 1
-                        if self.boats_left[max_boat_len - 1] > 0 and self.columns_left[column] >= max_boat_len - 2:
+                        if self.boats_left[max_boat_len - 1] > 0 and self.columns_left[column] > i:
                             grouped_actions.append((originator[0], originator[1], max_boat_len, False))
                             action_count += 1
                         else:
@@ -379,7 +390,7 @@ class Board:
                     row -= 1
                     if row >= 0 and self.matrix[row, column] == 0:  # if empty
                         max_boat_len += 1
-                        if self.boats_left[max_boat_len - 1] > 0 and self.columns_left[column] >= max_boat_len - 2:
+                        if self.boats_left[max_boat_len - 1] > 0 and self.columns_left[column] > i:
                             grouped_actions.append((row, column, max_boat_len, False))
                             action_count += 1
                         else:
@@ -395,7 +406,7 @@ class Board:
                     if column <= 9 and self.matrix[row, column] == 0:  # if empty
                         max_boat_len += 1
                         column += 1
-                        if self.boats_left[max_boat_len - 1] > 0 and self.columns_left[row] >= max_boat_len - 2:
+                        if self.boats_left[max_boat_len - 1] > 0 and self.rows_left[row] > i:
                             grouped_actions.append((originator[0], originator[1], max_boat_len, True))
                             action_count += 1
                         else:
@@ -411,7 +422,7 @@ class Board:
                     column -= 1
                     if column >= 0 and self.matrix[row, column] == 0:  # if empty
                         max_boat_len += 1
-                        if self.boats_left[max_boat_len - 1] > 0 and self.columns_left[row] >= max_boat_len - 2:
+                        if self.boats_left[max_boat_len - 1] > 0 and self.rows_left[row] > i:
                             grouped_actions.append((row, column, max_boat_len, True))
                             action_count += 1
                         else:
@@ -423,12 +434,9 @@ class Board:
                 column = key[1]
                 if row == originator[0]:  # Horizontal
                     if column < originator[1]:  # Undef Left of originator
-                        if column < 7 and (row, column + 2) in self.candidates_from_hints:  # if there's another candidate
-                            del self.candidates_from_hints[(row, column + 2)]  # remove it
-
                         grouped_actions.append((row, column, 3, True))  # Add 3  - Horizontal
                         action_count += 1
-                        if self.boats_left[4 - 1] > 0 and self.columns_left[row] >= 4:  # if there's a 4p left
+                        if self.boats_left[4 - 1] > 0 and self.rows_left[row] > 0:  # if there's a 4p left
                             grouped_actions.append((row, column - 1, 4, True))  # Add 4  - Horizontal
                             action_count += 1
                             if self.matrix[row, column + 2] != 7:  # if not Right
@@ -436,7 +444,6 @@ class Board:
                                 action_count += 1
                     else:       # Undef Right of originator
                         if column > 1 and (row, column - 2) in self.candidates_from_hints:  # if there's another candidate
-                            del self.candidates_from_hints[(row, column)]  # remove it
                             continue
 
                         grouped_actions.append((row, column - 2, 3, True))  # Add 3  - Horizontal
@@ -449,8 +456,6 @@ class Board:
                                 action_count += 1
                 else:  # Vertical
                     if row < originator[0]:  # Undef Top of originator
-                        if row < 7 and (row + 2, column) in self.candidates_from_hints:  # if there's another candidate
-                            del self.candidates_from_hints[(row + 2, column)]
                         grouped_actions.append((row, column, 3, False))  # Add 3  - Vertical
                         action_count += 1
                         if self.boats_left[4 - 1] > 0 and self.columns_left[column] >= 4:  # if there's a 4p left
@@ -461,7 +466,6 @@ class Board:
                                 action_count += 1
                     else:  # Undef Bottom of originator
                         if row > 1 and (row - 2, column) in self.candidates_from_hints:  # if there's another candidate
-                            del self.candidates_from_hints[(row, column)]  # remove it
                             continue
                         grouped_actions.append((row - 2, column, 3, False))  # Add 3  - Vertical
                         action_count += 1
@@ -473,14 +477,14 @@ class Board:
                                 action_count += 1
 
             if grouped_actions:
-                actions.append((action_count, sorted(grouped_actions, key=lambda x: x[2])))
+                actions.append((action_count, sorted(grouped_actions, key=lambda x: x[2], reverse=True)))
 
         return sorted(actions, key=lambda x: x[0])
 
 
     def fill_row_with_water(self, row_no: int):
         """ Fills row with water """
-        direction = "lr"
+        direction = ""
         if row_no != 0:
             direction += "d"
         if row_no != 9:
@@ -488,7 +492,12 @@ class Board:
 
         for col_no in range(10):
             if self.matrix[row_no, col_no] == 0:  # if not filled
-                self.place_water(row_no, col_no, direction, True)
+                direct = direction
+                if col_no < 9 and self.matrix[row_no, col_no + 1] > 1:
+                    direct += "r"
+                if col_no > 1 and self.matrix[row_no, col_no - 1] > 1:
+                    direct += "l"
+                self.place_water(row_no, col_no, direct, True)
         return
 
     def fill_col_with_water(self, col_no: int):
@@ -528,7 +537,7 @@ class Board:
         self.boats_left[size - 1] = boat_num - 1
         return
 
-    def place_water(self, row: int, col: int, direction: str, has_middles = False):
+    def place_water(self, row: int, col: int, direction: str, has_middles=False):
         """ Places water and checks in the directions given """
 
         # If water already present, return
@@ -559,7 +568,7 @@ class Board:
 
             if has_middles and col < 9 and self.matrix[row, col + 1] == 8:
                 if col < 8:
-                    self.place_water(row, col + 2, "r", self.matrix, self.boats_left, has_middles)
+                    self.place_water(row, col + 2, "r", has_middles)
                 # Middle piece is vertical Boat - add undefined pieces above and below
 
                 if self.matrix[row - 1, col + 1] == 0:  # above middle not filled
@@ -603,8 +612,10 @@ class Board:
                 if self.matrix[row - 1, col - 1] == 0:  # not filled
                     if row == 1 or self.matrix[row - 2, col - 1] == 1:  # Water above
                             self.place_piece(row - 1, col - 1, 3)  # place Top
+                            self.infer_water(3, row - 1, col - 1)   #FIXME not sure if needed
                             if row == 8 or self.matrix[row + 2, col - 1] == 1:  # If there is water below or last row
                                 self.place_piece(row + 1, col - 1, 4)  # place Bottom
+                                self.infer_water(4, row + 1, col - 1)  # FIXME not sure if needed
                                 self.remove_boat(3)  # mark boat of 3 pieces as found
                     else:
                         self.place_piece(row - 1, col - 1, 9, originator=(row, col - 1, 8))  # place Undefined
@@ -635,7 +646,8 @@ class Board:
             if has_middles and row > 0 and self.matrix[row - 1, col] == 8:
                 if row > 1:
                     self.place_water(row - 2, col, "u", has_middles)
-                # Middle piece is vertical Boat - add undefined pieces above and below
+
+                # Middle piece is horizontal Boat - add undefined pieces left and right
 
                 if self.matrix[row - 1, col - 1] == 0:  # Left of Middle not filled
                     if col == 1 or self.matrix[row - 1, col - 2] == 1:  # Water Left
@@ -698,10 +710,10 @@ class Board:
         pieces_left = self.rows_left[row_no]
         self.rows_left[row_no] = pieces_left - 1
 
-        if pieces_left == 1:
+        if fill_with_water and pieces_left == 1:
             self.fill_row_with_water(row_no)
         if pieces_left <= 0:  # TODO: check if this is correct
-            raise Exception("Integrity check failed: row has too many pieces")
+            raise ValueError("Integrity check failed: row has too many pieces")
 
         return
 
@@ -710,7 +722,7 @@ class Board:
         pieces_left = self.columns_left[col_no]
         self.columns_left[col_no] = pieces_left - 1
 
-        if pieces_left == 1:
+        if fill_with_water and pieces_left == 1:
             self.fill_col_with_water(col_no)
         if pieces_left <= 0:  # TODO: check if this is correct
             raise Exception("Integrity check failed: row has too many pieces")
@@ -782,16 +794,20 @@ class Board:
         # read hints
         hint_no = int(input())
         hints = []
+
+        output_hints = []
         for i in range(hint_no):
             hint = input().split()[1:]  # [row, col, hint]
             hint[0] = int(hint[0])
             hint[1] = int(hint[1])
+            output_hints.append(hint.copy())
+
             hint[2] = Board.translate_to_int(hint[2])
             hints.append(hint)
 
         hints.sort(key=lambda x: x[2])
 
-        return Board(rows, columns, boats_left, matrix, True, hints)
+        return Board(rows, columns, boats_left, matrix, True, hints), output_hints
 
     def infer_water(self, piece, row_no, col_no, has_middles=True):
         if piece == 1:  # water
@@ -820,8 +836,9 @@ class Board:
             # add L and R
             if piece != 7 and col_no > 0:  # not Right
                 self.place_water(row_no, col_no - 1, "l", has_middles)
-                if piece == 6:  # left
-                    return
+
+            if piece == 6:  # left
+                return
 
             if col_no < 9:
                 self.place_water(row_no, col_no + 1, "r", has_middles)
@@ -838,10 +855,123 @@ class Board:
     def actions(self):
         """Devolve uma lista de ações"""
         # get max available boat size
+        if self.null:
+            return []
         max_boat = self.get_max_boat_size()  # max boat size
 
         if self.candidate_actions:
             return self.candidate_actions[0][1]
+        elif max_boat == 0:
+            return []
+        elif max_boat == self.prev_max_boat and self.prev_actions:
+            for i in range(len(self.prev_actions)):
+                # find first placed
+                # TODO probably take 1p out first
+                top_row = self.prev_actions[i][0]
+                top_col = self.prev_actions[i][1]
+                first_piece = self.matrix[top_row, top_col]
+
+                if first_piece == 2 and max_boat == 1:  # then this was placed
+                    break
+                elif self.prev_actions[i][3]:  # if horizontal
+                    if first_piece == 6 and self.matrix[top_row, top_col + max_boat - 1] == 7: # TODO THIS COMPARISON IS NOT FULLY CORRECT
+                        # ok so there's pieces at start and at end
+                        break
+                else:  # if vertical
+                    if first_piece == 3 and self.matrix[top_row + max_boat - 1, top_col] == 4:  # TODO THIS COMPARISON IS NOT FULLY CORRECT
+                        # ok so there's pieces at start and at end
+                        break
+
+            # COMEÇA A PROCURA
+            actions = []
+            prev_actions_len = len(self.prev_actions) - 1
+            while i < prev_actions_len:
+                i += 1
+                top_row = self.prev_actions[i][0]
+                top_col = self.prev_actions[i][1]
+                dir = self.prev_actions[i][3]   # horizontal if True
+                size = self.prev_actions[i][2]
+                first_piece_matrix = self.matrix[top_row, top_col]
+
+                if max_boat == 1:  # if we're looking for a boat of 1
+                    if first_piece_matrix != 0 or self.rows_left[top_row] <= 0 or self.columns_left[top_col] <= 0:
+                        continue
+
+                elif dir:  # horizontal
+                    acerto = 0
+                    if first_piece_matrix != 6 and first_piece_matrix != 9:  # if not left and not undef
+                        if first_piece_matrix != 0 or self.columns_left[top_col] <= 0:
+                            continue
+                        elif self.rows_left[top_row] <= 0:
+                            continue
+                        else:
+                            acerto += 1
+
+
+                    last_piece_matrix = self.matrix[top_row, top_col + size - 1]
+                    if last_piece_matrix != 7 and last_piece_matrix != 9:
+                        if last_piece_matrix != 0 or self.columns_left[top_col + size - 1] <= 0:
+                            continue
+                        elif self.rows_left[top_row] <= acerto:
+                            continue
+                        else:
+                            acerto += 1
+
+                    if max_boat > 2:  # if boat of 3 or 4
+                        middle_piece_matrix = self.matrix[top_row, top_col + 1]
+                        if middle_piece_matrix != 8 and middle_piece_matrix != 9:
+                            if middle_piece_matrix != 0 or self.columns_left[top_col + 1] <= 0:
+                                continue
+                            elif self.rows_left[top_row] <= acerto:
+                                continue
+                            else:
+                                acerto += 1
+
+                        if max_boat == 4:
+                            sec_middle_piece_matrix = self.matrix[top_row, top_col + 2]
+                            if sec_middle_piece_matrix != 8 and sec_middle_piece_matrix != 9:
+                                if sec_middle_piece_matrix != 0 or self.columns_left[top_col + 2] <= 0 or self.rows_left[top_row] <= acerto:
+                                        continue
+
+                else:   # vertical
+                    acerto = 0
+                    if first_piece_matrix != 3 and first_piece_matrix != 9:  # if not Top and not undef
+                        if first_piece_matrix != 0 or self.rows_left[top_row] <= 0:
+                            continue
+                        elif self.columns_left[top_col] <= 0:
+                            continue
+                        else:
+                            acerto += 1
+
+                    last_piece_matrix = self.matrix[top_row + size - 1, top_col]
+                    if last_piece_matrix != 4 and last_piece_matrix != 9:
+                        if last_piece_matrix != 0 or self.rows_left[top_row + size - 1] <= 0:
+                            continue
+                        elif self.columns_left[top_col] <= acerto:
+                            continue
+                        else:
+                            acerto += 1
+
+                    if max_boat > 2:  # if boat of 3 or 4
+                        middle_piece_matrix = self.matrix[top_row + 1, top_col]
+                        if middle_piece_matrix != 8 and middle_piece_matrix != 9:
+                            if middle_piece_matrix != 0 or self.rows_left[top_row + 1] <= 0:
+                                continue
+                            elif self.columns_left[top_col] <= acerto:
+                                continue
+                            else:
+                                acerto += 1
+
+                        if max_boat == 4:
+                            sec_middle_piece_matrix = self.matrix[top_row + 2, top_col]
+                            if sec_middle_piece_matrix != 8 and sec_middle_piece_matrix != 9:
+                                if sec_middle_piece_matrix != 0 or self.rows_left[top_row + 2] <= 0 or \
+                                        self.columns_left[top_col] <= acerto:
+                                    continue
+
+
+                # if it gets here, it's a valid action
+                actions.append(self.prev_actions[i])
         else:
             # init actions
             actions = []
@@ -882,6 +1012,8 @@ class Board:
                         if no_consecutive_squares >= max_boat and row not in rows_with_middle and row-max_boat not in rows_with_middle:
                             actions.append((row - max_boat, i, max_boat, False))
 
+        self.prev_max_boat = max_boat
+        self.prev_actions = actions
         return actions
 
     def place_and_check(self, row_no, col_no, piece):
@@ -913,10 +1045,10 @@ class Board:
         elif action[2] == 2:
             if action[3]:  # If horizontal
                 self.place_and_check(action[0], action[1], 6)  # place left
-                self.place_and_check(action[0], action[1] + 1, 7)  # place left
+                self.place_and_check(action[0], action[1] + 1, 7)  # place Right
             else:
-                self.place_and_check(action[0], action[1], 3)  # place left
-                self.place_and_check(action[0] + 1, action[1], 4)  # place left
+                self.place_and_check(action[0], action[1], 3)  # place Top
+                self.place_and_check(action[0] + 1, action[1], 4)  # place Bottom
         elif action[2] == 3:
             if action[3]:   # If Horizontal
                 self.place_and_check(action[0], action[1], 6)       # place Left
@@ -948,11 +1080,11 @@ class Bimaru(Problem):
         """O construtor especifica o estado inicial."""
         self.initial = BimaruState(board)
         # TODO
-        pass
 
     def actions(self, state: BimaruState):
         """Retorna uma lista de ações que podem ser executadas a
         partir do estado passado como argumento."""
+
 
         return state.board.actions()
 
@@ -963,10 +1095,14 @@ class Bimaru(Problem):
         das presentes na lista obtida pela execução de
         self.actions(state)."""
 
-        new_board = state.board.copy()
+        try:
+            new_board = state.board.copy()
 
-        new_board.place_boat(action)
-        new_board.update_candidates()
+
+            new_board.place_boat(action)
+            new_board.update_candidates()
+        except Exception:
+            new_board.nullify()
 
         return BimaruState(new_board)
 
@@ -1007,13 +1143,17 @@ class Bimaru(Problem):
 
 if __name__ == "__main__":
     # Ler o ficheiro do standard input,
-    board = Board.parse_instance()
+    board, hints = Board.parse_instance()
+    fill_with_water = False
     problem = Bimaru(board)
     # Usar uma técnica de procura para resolver a instância,
     # Retirar a solução a partir do nó resultante,
     goal_node = depth_first_tree_search(Bimaru(board))
 
     # Imprimir para o standard output no formato indicado.
+    goal_node.state.board.print_board_output(hints)
+
+
 
 
 
