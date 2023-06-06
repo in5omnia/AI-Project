@@ -22,7 +22,6 @@ from search import (
 )
 
 
-fill_with_water = True
 
 class BimaruState:
     state_id = 0
@@ -108,13 +107,12 @@ class Board:
                 # TODO: checks prev piece for already counted boat
 
                 if piece == 1:  # if water don't check anything
-                    self.place_water(hint_row, hint_col, "rlud")
+                    self.place_water(hint_row, hint_col, "")
                     continue
 
                 prev_piece = self.matrix[hint_row, hint_col]
                 if piece == prev_piece:  # already infered
                     continue
-
 
                 if piece != 8:  # if not middle
                     if piece == 2:  # if circle
@@ -135,7 +133,7 @@ class Board:
                             self.replace_piece(hint_row + 1, hint_col, 8)  # replace with Middle
                         elif self.matrix[hint_row + 2, hint_col] == 9:  # if undefined 2 squares below
                             self.remove_boat(4)  # it's a 4p boat
-                            self.place_piece(hint_row + 1, hint_col, 8)   # Place Middle FIXME: check if it's correct
+                            self.place_piece(hint_row + 1, hint_col, 8)   # Place Middle
                             self.replace_piece(hint_row + 2, hint_col, 8)   # replace with Middles
                         else:
                             self.place_piece(hint_row + 1, hint_col, 9, originator=(hint_row, hint_col, 3))  # place Undefined
@@ -150,7 +148,7 @@ class Board:
                             self.replace_piece(hint_row - 1, hint_col, 8)  # place Middle
                         elif self.matrix[hint_row - 2, hint_col] == 9:  # if undefined 2 squares below
                             self.remove_boat(4)  # it's a 4p boat
-                            self.place_piece(hint_row - 1, hint_col, 8)  # Fixme: check if it's correct
+                            self.place_piece(hint_row - 1, hint_col, 8)
                             self.replace_piece(hint_row - 2, hint_col, 8)  # replace with Middles
                         else:
                             self.place_piece(hint_row - 1, hint_col, 9, originator=(hint_row, hint_col, 4))  # place Undefined
@@ -165,7 +163,7 @@ class Board:
                             self.replace_piece(hint_row, hint_col + 1, 8)   # replace with Middle
                         elif self.matrix[hint_row, hint_col + 2] == 9:      # if undefined 2 squares on the right
                             self.remove_boat(4)  # it's a 4p boat
-                            self.place_piece(hint_row, hint_col + 1, 8)     # FIXME: check if it's correct
+                            self.place_piece(hint_row, hint_col + 1, 8)
                             self.replace_piece(hint_row, hint_col + 2, 8)   # replace with Middles
                         else:
                             self.place_piece(hint_row, hint_col + 1, 9, originator=(hint_row, hint_col,6))      # place Undefined
@@ -180,7 +178,7 @@ class Board:
                             self.replace_piece(hint_row, hint_col - 1, 8)   # replace with Middle
                         elif self.matrix[hint_row, hint_col - 2] == 9:  # if undefined 2 squares on the left
                             self.remove_boat(4)  # it's a 4p boat
-                            self.place_piece(hint_row, hint_col - 1, 8)     # FIXME: check if it's correct
+                            self.place_piece(hint_row, hint_col - 1, 8)
                             self.replace_piece(hint_row, hint_col - 2, 8)  # replace with Middles
                         else:
                             self.place_piece(hint_row, hint_col - 1, 9, originator=(hint_row, hint_col, 7))  # place Undefined
@@ -189,17 +187,17 @@ class Board:
                     self.infer_water(piece, hint_row, hint_col)
 
                 else:   # if Middle
-                    if prev_piece == 8:  # if Middle
-                        continue            # FIXME NOT NEEEDED
 
-                    if hint_col <= 7 and self.matrix[hint_row, hint_col + 2] > 1:   # piece on the right
+                    if hint_col <= 7 and self.matrix[hint_row, hint_col + 1] != 9 and self.matrix[hint_row, hint_col + 2] > 1:   # piece on the right
                         self.place_water(hint_row, hint_col + 1, "rlud", True)
-                    elif hint_col >= 2 and self.matrix[hint_row, hint_col - 2] > 1:
+                        pass
+                    elif hint_col >= 2 and self.matrix[hint_row, hint_col - 1] != 9 and self.matrix[hint_row, hint_col - 2] > 1:
                         self.place_water(hint_row, hint_col - 1, "rlud", True)
-                    elif hint_row <= 7 and self.matrix[hint_row + 2, hint_col] > 1:   # piece on the right
+                    elif hint_row <= 7 and self.matrix[hint_row + 1, hint_col] != 9 and self.matrix[hint_row + 2, hint_col] > 1:   # piece below
                         self.place_water(hint_row + 1, hint_col, "rlud", True)
-                    elif hint_row >= 2 and self.matrix[hint_row - 2, hint_col] > 1:
+                    elif hint_row >= 2 and self.matrix[hint_row - 1, hint_col] != 9 and self.matrix[hint_row - 2, hint_col] > 1:
                         self.place_water(hint_row - 1, hint_col, "rlud", True)
+
 
                     # if first row or water above -> horizontal boat
                     if hint_row == 0 or self.matrix[hint_row - 1, hint_col] == 1 or hint_row == 9 or \
@@ -218,13 +216,11 @@ class Board:
                                 if self.boats_left[3] == 0 or hint_col == 1 or self.matrix[hint_row, hint_col - 2] == 1:  # if no 4p boats left
                                     self.remove_boat(3)  # we can place a 3p boat
                                     self.place_piece(hint_row, hint_col - 1, 6)  # place Left - previously empty because if it could only have Left piece and in that case, the boat would have been already found
-                                    # ^^ FIXME prob right but if there is error, we check
                                     self.infer_water(6, hint_row, hint_col - 1)
                             elif right_piece == 9:  # Undefined
                                 self.remove_boat(4)  # it's a 4p boat
                                 self.replace_piece(hint_row, hint_col + 1, 8)  # replace with Middle on right_piece position
                                 self.place_piece(hint_row, hint_col - 1, 6) # place Left on left_piece position
-                                # ^^ FIXME we pretty sure it's right but if there is error, we check
                                 self.infer_water(6, hint_row, hint_col - 1)
                             else:  # right_piece is Middle
                                 self.remove_boat(4)  # it's a 4p boat
@@ -245,7 +241,7 @@ class Board:
                             elif left_piece == 9:  # Undefined
                                 self.remove_boat(4)  # it's a 4p boat
                                 self.replace_piece(hint_row, hint_col - 1, 8)  # replace left_piece with Middle
-                                self.place_piece(hint_row, hint_col + 1, 7)  # place Right on right_piece position FIXME: might be wrong
+                                self.place_piece(hint_row, hint_col + 1, 7)  # place Right on right_piece position
                                 self.infer_water(7, hint_row, hint_col + 1)
                             else:  # Middle
                                 self.remove_boat(4)  # it's a 4p boat
@@ -254,7 +250,7 @@ class Board:
                                 if self.matrix[hint_row, hint_col - 2] == 0:    # if empty
                                     self.place_piece(hint_row, hint_col - 2, 6)     # place Right
                                 else:
-                                    self.replace_piece(hint_row, hint_col - 2, 6)   # replace with Right    #FIXME INTERNAL
+                                    self.replace_piece(hint_row, hint_col - 2, 6)  # replace with Right
                                 self.infer_water(6, hint_row, hint_col - 2)
                         else:   # No boats next to the hint
                             if self.boats_left[3] == 0:  # no more 4p boat
@@ -1179,6 +1175,7 @@ class Bimaru(Problem):
 
 if __name__ == "__main__":
     # Ler o ficheiro do standard input,
+    fill_with_water = True
     board, hints = Board.parse_instance()
     fill_with_water = False
     problem = Bimaru(board)
